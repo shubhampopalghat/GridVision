@@ -58,7 +58,7 @@ const distributionSchedules = [
 const lineControls = [
   {
     lineId: "L001",
-    lineName: "Line 1 - Main Building",
+    lineName: "Main Building",
     isActive: true,
     currentPower: 150,
     maxPower: 200,
@@ -69,7 +69,7 @@ const lineControls = [
   },
   {
     lineId: "L002",
-    lineName: "Line 2 - Manufacturing",
+    lineName: "Manufacturing",
     isActive: false,
     currentPower: 0,
     maxPower: 200,
@@ -80,7 +80,7 @@ const lineControls = [
   },
   {
     lineId: "L003",
-    lineName: "Line 3 - HVAC Systems",
+    lineName: "HVAC Systems",
     isActive: false,
     currentPower: 0,
     maxPower: 150,
@@ -91,7 +91,7 @@ const lineControls = [
   },
   {
     lineId: "L004",
-    lineName: "Line 4 - Emergency Systems",
+    lineName: "Emergency Systems",
     isActive: true,
     currentPower: 25,
     maxPower: 100,
@@ -169,6 +169,19 @@ export default function DistributionPage() {
   const [schedules, setSchedules] = useState(distributionSchedules)
   const [lines, setLines] = useState(lineControls)
 
+  const generateLineId = () => {
+    const existingIds = lines.map(line => line.lineId)
+    let counter = 1
+    let newId = `L${counter}00`
+    
+    while (existingIds.includes(newId)) {
+      counter++
+      newId = `L${counter}00`
+    }
+    
+    return newId
+  }
+
   const handleToggleLine = (lineId: string, active: boolean) => {
     setLines((prev) =>
       prev.map((line) =>
@@ -200,6 +213,41 @@ export default function DistributionPage() {
     )
   }
 
+  const handleAddLine = (lineName: string) => {
+    const newLineId = generateLineId()
+    const newLine = {
+      lineId: newLineId,
+      lineName: lineName,
+      isActive: false,
+      currentPower: 0,
+      maxPower: 200,
+      voltage: 0,
+      current: 0,
+      status: "offline" as const,
+      lastUpdate: "Just created",
+    }
+    
+    setLines((prev) => [...prev, newLine])
+  }
+
+  const handleEditLine = (lineId: string, newName: string) => {
+    setLines((prev) =>
+      prev.map((line) =>
+        line.lineId === lineId
+          ? {
+              ...line,
+              lineName: newName,
+              lastUpdate: "Just updated",
+            }
+          : line,
+      ),
+    )
+  }
+
+  const handleRemoveLine = (lineId: string) => {
+    setLines((prev) => prev.filter((line) => line.lineId !== lineId))
+  }
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <DashboardHeader />
@@ -217,7 +265,14 @@ export default function DistributionPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <DistributionScheduleCard schedules={schedules} />
-            <LineControlPanel lines={lines} onToggleLine={handleToggleLine} onPowerAdjust={handlePowerAdjust} />
+            <LineControlPanel 
+              lines={lines} 
+              onToggleLine={handleToggleLine} 
+              onPowerAdjust={handlePowerAdjust} 
+              onAddLine={handleAddLine}
+              onEditLine={handleEditLine}
+              onRemoveLine={handleRemoveLine}
+            />
           </div>
         </section>
 

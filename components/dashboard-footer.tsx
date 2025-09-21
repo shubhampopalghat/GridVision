@@ -45,16 +45,6 @@ export function DashboardFooter({ activeTab = "generation" }: DashboardFooterPro
       className="fixed bottom-0 left-0 right-0 z-[1000] w-full backdrop-blur-md bg-secondary/90 dark:bg-secondary/40 border-t border-border px-2 sm:px-6 py-2 sm:py-3 shadow-sm pb-[env(safe-area-inset-bottom)]"
     >
       <nav className="flex items-center justify-between">
-        {/* Apps control */}
-        <div className="pl-1 sm:pl-0">
-          <Link href="/applications">
-            <Button variant="ghost" className="gap-2">
-              <SlidersHorizontal className="h-5 w-5" />
-              <span className="hidden sm:inline">Applications</span>
-            </Button>
-          </Link>
-        </div>
-
         {/* Tabs */}
         <div className="flex gap-1 sm:gap-2 mx-auto">
           {tabs.map((tab) => {
