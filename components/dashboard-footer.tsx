@@ -42,7 +42,7 @@ export function DashboardFooter({ activeTab = "generation" }: DashboardFooterPro
 
   return (
     <footer
-      className="fixed bottom-0 left-0 right-0 z-[1000] w-full backdrop-blur-md bg-secondary/90 dark:bg-secondary/40 border-t border-border px-2 sm:px-6 py-2 sm:py-3 shadow-sm pb-[env(safe-area-inset-bottom)]"
+      className="fixed bottom-0 left-0  z-[1000] w-full backdrop-blur-md bg-secondary/90 dark:bg-secondary/40 border-t border-border px-2 sm:px-10 py-2 sm:py-6 shadow-sm pb-[env(safe-area-inset-bottom)]"
     >
       <nav className="flex items-center justify-between">
         {/* Tabs */}
