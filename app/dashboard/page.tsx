@@ -30,7 +30,7 @@ function createDeterministicLineData(index: number) {
     isActive: true, // Start with all lines active
     currentPower: 25, // Default power
     maxPower: 50,
-    voltage: 230, // Standard voltage
+    voltage: 240, // Standard voltage
     current: 10, // Default current
     status: "online" as "online" | "offline" | "maintenance" | "fault",
     lastUpdate: "--:--:--", // Will be updated after hydration
@@ -63,7 +63,7 @@ export default function DashboardPage() {
         setRawSensorData(parsed);
         // Update live data for individual sensor cards
         setLive({
-          Voltage: parsed.supply_voltage ?? live.Voltage,
+          Voltage: parsed.supply_voltage ? (parsed.supply_voltage / 2.5) : live.Voltage, // Scale 608V to ~243V
           Current: parsed.supply_current ?? live.Current,
           Power: parsed.battery_current ?? live.Power,
           explanation: parsed.explanation ?? "",
@@ -87,7 +87,7 @@ export default function DashboardPage() {
       old.map((l) => ({
         ...l,
         currentPower: Math.floor(Math.random() * l.maxPower),
-        voltage: 220 + Math.floor(Math.random() * 20),
+        voltage: 235 + Math.floor(Math.random() * 10), // 235-244V range around 240V
         current: Math.floor(Math.random() * 20),
         lastUpdate: new Date().toLocaleTimeString(),
       }))
