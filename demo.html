@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AGridVision Control Panel</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; background: #111827; color: #f3f4f6; }
+    h1, h2, h3 { text-align: center; color: #4ade80; }
+    #controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; max-width: 1000px; margin: 20px auto; }
+    button { margin: 5px; padding: 10px 15px; border-radius: 5px; border: none; cursor: pointer; font-weight: bold; transition: transform 0.1s; }
+    button:hover { transform: scale(1.05); }
+    .line-on { background: #16a34a; color: white; }
+    .line-off { background: #dc2626; color: white; }
+    pre { background: #1f2937; padding: 15px; border-radius: 8px; min-height: 200px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word; }
+    #ipForm { text-align: center; margin-bottom: 20px; }
+    #ipForm input { padding: 8px; border-radius: 5px; border: 1px solid #4b5563; background: #374151; color: white; }
+    #status-container { max-width: 1000px; margin: 20px auto; }
+    #alert-box { padding: 1rem; background: #991b1b; border: 1px solid #f87171; border-radius: 8px; display: none; }
+    #alert-box h3 { color: #fef2f2; text-align: left; margin: 0 0 0.5rem 0; }
+    #alert-box p { color: #fecaca; margin: 0; }
+  </style>
+</head>
+<body>
+  <h1>📡 AGridVision Control Panel</h1>
+  <div id="ipForm">
+    Server IP: <input type="text" id="serverIP" placeholder="e.g., 192.168.1.5" />
+    <button onclick="connectWS()">Connect</button>
+  </div>
+  <div id="controls"></div>
+
+  <div id="status-container">
+    <h3>System Status:</h3>
+    <div id="alert-box">
+      <h3>Anomaly Detected!</h3>
+      <p id="alert-explanation">Unusual sensor activity detected.</p>
+    </div>
+    <h3>Live Sensor Data:</h3>
+    <pre id="sensor">Waiting for data...</pre>
+  </div>
+
+  <script>
+    let ws;
+    const sensorEl = document.getElementById('sensor');
+    const alertBoxEl = document.getElementById('alert-box');
+    const alertExplanationEl = document.getElementById('alert-explanation');
+
+    function connectWS() {
+      const ip = document.getElementById("serverIP").value.trim();
+      if (!ip) { alert("Please enter a valid server IP"); return; }
+      ws = new WebSocket(`ws://${ip}:8080`);
+      ws.onopen = () => { ws.send("BROWSER"); sensorEl.textContent = 'Connected to server. Waiting for data...'; };
+      ws.onclose = () => { sensorEl.textContent += "\nConnection closed."; };
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        
+        // Display the raw sensor data
+        sensorEl.textContent = JSON.stringify(data, null, 2);
+        
+        // Check for the anomaly prediction and show/hide/update the alert
+        if (data.system_status === 'anomaly') {
+          alertExplanationEl.textContent = data.explanation || 'No specific explanation was provided.';
+          alertBoxEl.style.display = 'block';
+        } else {
+          alertBoxEl.style.display = 'none';
+        }
+      };
+    }
+
+    const controlsDiv = document.getElementById("controls");
+    for (let i = 1; i <= 20; i++) {
+      const onBtn = document.createElement("button");
+      onBtn.textContent = `Line ${i} ON`;
+      onBtn.className = "line-on";
+      onBtn.onclick = () => sendCommand(`Line${i}_ON`);
+      const offBtn = document.createElement("button");
+      offBtn.textContent = `Line ${i} OFF`;
+      offBtn.className = "line-off";
+      offBtn.onclick = () => sendCommand(`Line${i}_OFF`);
+      const container = document.createElement("div");
+      container.appendChild(onBtn);
+      container.appendChild(offBtn);
+      controlsDiv.appendChild(container);
+    }
+
+    function sendCommand(cmd) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(cmd);
+      } else {
+        alert("WebSocket not connected!");
+      }
+    }
+  </script>
+</body>
+</html>

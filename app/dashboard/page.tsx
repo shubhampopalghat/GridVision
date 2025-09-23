@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { randomLineData } from "@/lib/randomData";
 
 // Shape of a line
-type Line = ReturnType<typeof randomLineData>;
+type Line = ReturnType<typeof createDeterministicLineData>;
 
 // Type for live data
 interface LiveData {
@@ -18,39 +18,80 @@ interface LiveData {
   Current?: number;
   Power?: number;
   explanation?: string;
+  system_status?: string;
+  [key: string]: any; // Allow for any additional properties from WebSocket
+}
+
+// Create deterministic line data to avoid hydration mismatch
+function createDeterministicLineData(index: number) {
+  return {
+    lineId: `Line${index + 1}`,
+    lineName: `Line ${index + 1}`,
+    isActive: true, // Start with all lines active
+    currentPower: 25, // Default power
+    maxPower: 50,
+    voltage: 230, // Standard voltage
+    current: 10, // Default current
+    status: "online" as "online" | "offline" | "maintenance" | "fault",
+    lastUpdate: "--:--:--", // Will be updated after hydration
+  };
 }
 
 export default function DashboardPage() {
   const [live, setLive] = useState<LiveData>({});
-  const [lines, setLines] = useState<Line[]>([randomLineData(), randomLineData()]);
+  const [rawSensorData, setRawSensorData] = useState<any>(null);
+  const [ws, setWs] = useState<WebSocket | null>(null);
+  // Initialize with 20 lines using deterministic data to avoid hydration issues
+  const [lines, setLines] = useState<Line[]>(() => {
+    return Array.from({ length: 20 }, (_, i) => createDeterministicLineData(i));
+  });
 
-  // WebSocket connection to backend
+  // WebSocket connection to backend - hardcoded IP and auto-connect
   useEffect(() => {
-    const ws = new WebSocket("ws://localhost:8080"); // Update if your backend IP/port is different
+    const websocket = new WebSocket("ws://10.54.194.247:8080"); // Hardcoded IP and port
+    setWs(websocket);
 
-    ws.onopen = () => {
-      console.log("[DASHBOARD] Connected to WS");
-      ws.send("BROWSER");
+    websocket.onopen = () => {
+      console.log("[DASHBOARD] Connected to WS at 10.54.194.247:8080");
+      websocket.send("BROWSER");
     };
 
-    ws.onmessage = (msg) => {
+    websocket.onmessage = (msg) => {
       try {
         const parsed = JSON.parse(msg.data);
+        // Store raw data for display like in demo.html
+        setRawSensorData(parsed);
+        // Update live data for individual sensor cards
         setLive({
           Voltage: parsed.supply_voltage ?? live.Voltage,
           Current: parsed.supply_current ?? live.Current,
           Power: parsed.battery_current ?? live.Power,
           explanation: parsed.explanation ?? "",
+          system_status: parsed.system_status,
         });
       } catch (err) {
         console.error("[DASHBOARD] WS parse error:", err);
       }
     };
 
-    ws.onclose = () => console.log("[DASHBOARD] WS disconnected");
-    ws.onerror = (err) => console.error("[DASHBOARD] WS error:", err);
+    websocket.onclose = () => console.log("[DASHBOARD] WS disconnected");
+    websocket.onerror = (err) => console.error("[DASHBOARD] WS error:", err);
 
-    return () => ws.close();
+    return () => websocket.close();
+  }, []);
+
+  // Initialize random data after hydration to avoid mismatch
+  useEffect(() => {
+    // Set initial random values after component mounts (client-side only)
+    setLines((old) =>
+      old.map((l) => ({
+        ...l,
+        currentPower: Math.floor(Math.random() * l.maxPower),
+        voltage: 220 + Math.floor(Math.random() * 20),
+        current: Math.floor(Math.random() * 20),
+        lastUpdate: new Date().toLocaleTimeString(),
+      }))
+    );
   }, []);
 
   // Periodically refresh simulated line data
@@ -67,17 +108,33 @@ export default function DashboardPage() {
     return () => clearInterval(id);
   }, []);
 
-  // Line control handlers
-  const toggleLine = (id: string, active: boolean) =>
+  // Function to send WebSocket commands
+  const sendCommand = (command: string) => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(command);
+      console.log(`[DASHBOARD] Sent command: ${command}`);
+    } else {
+      console.error("[DASHBOARD] WebSocket not connected!");
+    }
+  };
+
+  // Line control handlers with WebSocket commands
+  const toggleLine = (id: string, active: boolean) => {
     setLines((prev) =>
       prev.map((l) => (l.lineId === id ? { ...l, isActive: active } : l))
     );
+    // Send WebSocket command like in demo.html
+    const command = active ? `${id}_ON` : `${id}_OFF`;
+    sendCommand(command);
+  };
   const adjustPower = (id: string, p: number) =>
     setLines((prev) =>
       prev.map((l) => (l.lineId === id ? { ...l, currentPower: p } : l))
     );
-  const addLine = (name: string) =>
-    setLines((prev) => [...prev, { ...randomLineData(), lineName: name }]);
+  const addLine = (name: string) => {
+    const newIndex = lines.length;
+    setLines((prev) => [...prev, { ...createDeterministicLineData(newIndex), lineName: name }]);
+  };
   const editLine = (id: string, name: string) =>
     setLines((prev) =>
       prev.map((l) => (l.lineId === id ? { ...l, lineName: name } : l))
@@ -119,6 +176,41 @@ export default function DashboardPage() {
               trendValue="+0.1kW"
               status="normal"
             />
+          </div>
+        </section>
+
+        {/* ---------- Live Sensor Data (like demo.html) ---------- */}
+        <section>
+          <h2 className="text-2xl font-bold mb-4">Live Sensor Data</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Anomaly Alert */}
+            {live.system_status === 'anomaly' && (
+              <Card className="border-red-200 bg-red-50">
+                <CardHeader>
+                  <CardTitle className="text-red-800 flex items-center gap-2">
+                    <span className="text-red-500">⚠️</span>
+                    Anomaly Detected!
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-red-700">
+                    {live.explanation || 'Unusual sensor activity detected.'}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+            
+            {/* Raw Sensor Data Display */}
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle>Raw Sensor Data Stream</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <pre className="bg-gray-900 text-green-400 p-4 rounded-lg overflow-auto max-h-96 text-sm font-mono whitespace-pre-wrap">
+                  {rawSensorData ? JSON.stringify(rawSensorData, null, 2) : 'Waiting for data...'}
+                </pre>
+              </CardContent>
+            </Card>
           </div>
         </section>
 
